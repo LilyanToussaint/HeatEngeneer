@@ -11,7 +11,13 @@ from Source import (
     MethodeNTU,
     StreamConditions,
 )
-from Source.Heat_exchanger_methods.eps_ntu import effectiveness_counterflow
+from Source.Heat_exchanger_methods.eps_ntu import (
+    EPSILON_FUNCTIONS,
+    EPSILON_WITH_FIN_FUNCTIONS,
+    effectiveness_counterflow,
+    get_effectiveness_function,
+)
+from Source.Heat_exchanger_methods.utils import compute_overall_u
 
 
 class TestHeatExchangerMethods(unittest.TestCase):
@@ -31,6 +37,39 @@ class TestHeatExchangerMethods(unittest.TestCase):
             fin_efficiency=0.95,
         )
         self.area = 8.0
+
+    def test_stream_conditions_capacity_rate(self) -> None:
+        self.assertAlmostEqual(self.hot.heat_capacity_rate(), 1845.0)
+        self.assertAlmostEqual(self.cold.heat_capacity_rate(), 2520.0)
+
+    def test_compute_overall_u_with_fouling_and_fin(self) -> None:
+        hot = StreamConditions(
+            m_dot=0.3,
+            cp=4200.0,
+            inlet_temp=360.0,
+            correlation_kwargs={"Re": 3.2e4, "Pr": 5.3, "k": 0.62, "d_i": 0.018},
+            fin_efficiency=0.9,
+            area=9.0,
+            fouling_resistance=1.2e-4,
+        )
+        cold = StreamConditions(
+            m_dot=0.5,
+            cp=4000.0,
+            inlet_temp=295.0,
+            correlation_kwargs={"Re": 2.4e4, "Pr": 6.5, "k": 0.58, "d_i": 0.018},
+            fin_efficiency=0.88,
+            area=7.5,
+            fouling_resistance=0.8e-4,
+        )
+        u = compute_overall_u(2800.0, 2400.0, area_total=8.0, hot=hot, cold=cold, wall_resistance=5e-5)
+        self.assertGreater(u, 0.0)
+        self.assertLess(u, min(2800.0, 2400.0))
+
+    def test_compute_overall_u_invalid_inputs(self) -> None:
+        with self.assertRaises(ValueError):
+            compute_overall_u(-1.0, 100.0, 5.0, self.hot, self.cold)
+        with self.assertRaises(ValueError):
+            compute_overall_u(100.0, 100.0, -1.0, self.hot, self.cold)
 
     def test_ntu_counterflow(self) -> None:
         method = MethodeNTU("gnielinski_internal")
@@ -91,6 +130,28 @@ class TestHeatExchangerMethods(unittest.TestCase):
         self.assertGreater(result.heat_duty, 0.0)
         self.assertLess(result.hot_outlet_temp, self.hot.inlet_temp)
         self.assertGreater(result.cold_outlet_temp, self.cold.inlet_temp)
+
+    def test_effectiveness_catalog(self) -> None:
+        for name, func in EPSILON_FUNCTIONS.items():
+            # Ensure all registered functions are callable and yield values between 0 and 1
+            eps = func(NTU=1.2, capacity_ratio=0.4)
+            self.assertIsInstance(eps, float)
+            self.assertGreaterEqual(eps, 0.0, msg=name)
+            self.assertLessEqual(eps, 1.0 + 1e-9, msg=name)
+
+        for name, func in EPSILON_WITH_FIN_FUNCTIONS.items():
+            eps = func(NTU=1.2, capacity_ratio=0.6, eta_hot=0.9, eta_cold=0.85)
+            self.assertGreaterEqual(eps, 0.0, msg=name)
+            self.assertLessEqual(eps, 1.0 + 1e-9, msg=name)
+
+        func, needs_eta = get_effectiveness_function("counterflow")
+        self.assertFalse(needs_eta)
+        self.assertIs(func, effectiveness_counterflow)
+
+        func, needs_eta = get_effectiveness_function("counterflow_eta_fin")
+        self.assertTrue(needs_eta)
+        with self.assertRaises(ValueError):
+            get_effectiveness_function("unknown-config")
 
 
 if __name__ == "__main__":
