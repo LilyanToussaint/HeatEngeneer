@@ -1,5 +1,8 @@
 """Kays & London style correlation for staggered fin surfaces."""
 
+from typing import Optional
+
+
 _METADATA = {
     "domain": "compact heat exchanger",
     "convection": "forced",
@@ -13,7 +16,7 @@ def h_kays_london_staggered_fin(
     k: float,
     D_h: float,
     *,
-    Pr_s: float | None = None,
+    Pr_s: Optional[float] = None,
 ) -> float:
     """Return an approximate HTC for staggered fins using Kays & London data."""
     if Re <= 0.0 or Pr <= 0.0 or k <= 0.0 or D_h <= 0.0:

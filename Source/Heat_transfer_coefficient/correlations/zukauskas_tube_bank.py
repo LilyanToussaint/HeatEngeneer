@@ -1,5 +1,8 @@
 """Zukauskas correlation for cross-flow over tube banks."""
 
+from typing import Optional
+
+
 _METADATA = {
     "domain": "external",
     "convection": "forced",
@@ -21,8 +24,8 @@ def h_zukauskas_tube_bank(
     k: float,
     D: float,
     *,
-    Pr_s: float | None = None,
-    n_rows: int | None = None,
+    Pr_s: Optional[float] = None,
+    n_rows: Optional[int] = None,
 ) -> float:
     """Return the average HTC for a tube bank using Zukauskas correlation."""
     if Re <= 0.0 or D <= 0.0:

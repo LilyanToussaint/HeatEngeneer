@@ -1,6 +1,8 @@
 """Zukauskas inline tube bank correlation."""
 from __future__ import annotations
 
+from typing import Optional
+
 
 _METADATA = {
     "domain": "external",
@@ -30,7 +32,7 @@ def h_zukauskas_inline_tube_bank(
     k: float,
     d_o: float,
     N_rows: int = 10,
-    Pr_s: float | None = None,
+    Pr_s: Optional[float] = None,
 ) -> float:
     """Return the HTC for an inline bank of tubes (Zukauskas)."""
 
