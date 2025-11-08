@@ -1,5 +1,7 @@
 """Shah correlation for saturated flow boiling inside tubes."""
 
+from ...common import reynolds_number
+
 _METADATA = {
     "domain": "boiling",
     "convection": "flow boiling",
@@ -47,7 +49,11 @@ def h_shah_flow_boiling(
     if not (0.0 <= x < 1.0):
         raise ValueError("Shah: qualité vapeur x doit être dans [0, 1).")
 
-    Re_lo = G * D / mu_l
+    Re_lo = reynolds_number(
+        characteristic_length=D,
+        dynamic_viscosity=mu_l,
+        mass_flux=G,
+    )
     if Re_lo <= 0.0:
         raise ValueError("Shah: Re_lo doit être > 0.")
 

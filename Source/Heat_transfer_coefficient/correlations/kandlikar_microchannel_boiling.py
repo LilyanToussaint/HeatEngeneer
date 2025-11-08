@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import math
 
+from ...common import reynolds_number
+
 
 _METADATA = {
     "domain": "internal",
@@ -62,8 +64,18 @@ def h_kandlikar_microchannel_boiling(
 
     Bo = q_flux / (G * h_fg)
     Co = math.sqrt(sigma / (_G * (rho_l - rho_g))) / d_h
-    Re_lo = G * (1.0 - x + 1e-9) * d_h / mu_l
-    Re_v = G * (x + 1e-9) * d_h / mu_g
+    G_liq = G * (1.0 - x + 1e-9)
+    G_vap = G * (x + 1e-9)
+    Re_lo = reynolds_number(
+        characteristic_length=d_h,
+        dynamic_viscosity=mu_l,
+        mass_flux=G_liq,
+    )
+    Re_v = reynolds_number(
+        characteristic_length=d_h,
+        dynamic_viscosity=mu_g,
+        mass_flux=G_vap,
+    )
 
     if Re_lo <= 0:
         raise ValueError("Kandlikar microchannel boiling: Re_liquide <= 0.")

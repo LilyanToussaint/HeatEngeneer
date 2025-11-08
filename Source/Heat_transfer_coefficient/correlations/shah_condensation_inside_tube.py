@@ -1,5 +1,7 @@
 """Shah correlation for condensation inside tubes."""
 
+from ...common import reynolds_number
+
 _METADATA = {
     "domain": "condensation",
     "convection": "film",
@@ -23,7 +25,11 @@ def h_shah_condensation_inside_tube(
     if not (0.0 <= x <= 1.0):
         raise ValueError("Shah condensation: qualité vapeur x doit être dans [0, 1].")
 
-    Re_lo = G * D / mu_l
+    Re_lo = reynolds_number(
+        characteristic_length=D,
+        dynamic_viscosity=mu_l,
+        mass_flux=G,
+    )
     if Re_lo <= 0.0:
         raise ValueError("Shah condensation: Re_lo doit être > 0.")
 
