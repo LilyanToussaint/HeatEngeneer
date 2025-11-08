@@ -1,5 +1,11 @@
 """Dittus-Boelter correlation for turbulent internal flow in smooth tubes."""
 
+_METADATA = {
+    "domain": "internal",
+    "convection": "forced",
+    "geometry": "smooth circular tube",
+}
+
 
 def h_dittus_boelter_internal(
     Re: float, Pr: float, k: float, d_i: float, *, heating: bool = True
@@ -13,6 +19,9 @@ def h_dittus_boelter_internal(
     n = 0.4 if heating else 0.3
     Nu = 0.023 * Re ** 0.8 * Pr ** n
     return Nu * k / d_i
+
+
+h_dittus_boelter_internal.metadata = _METADATA.copy()
 
 
 __all__ = ["h_dittus_boelter_internal"]

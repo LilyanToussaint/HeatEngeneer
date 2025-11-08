@@ -1,5 +1,11 @@
 """Gnielinski correlation for turbulent internal flow in smooth tubes."""
 
+_METADATA = {
+    "domain": "internal",
+    "convection": "forced",
+    "geometry": "smooth circular tube",
+}
+
 
 def h_gnielinski_internal(Re: float, Pr: float, k: float, d_i: float) -> float:
     """Return the convection coefficient using the Gnielinski correlation."""
@@ -13,6 +19,9 @@ def h_gnielinski_internal(Re: float, Pr: float, k: float, d_i: float) -> float:
         1.0 + 12.7 * (f / 8.0) ** 0.5 * (Pr ** (2.0 / 3.0) - 1.0)
     )
     return Nu * k / d_i
+
+
+h_gnielinski_internal.metadata = _METADATA.copy()
 
 
 __all__ = ["h_gnielinski_internal"]

@@ -12,10 +12,15 @@ class HTCResult:
     valid: bool = True
     message: str = ""
     meta: Dict[str, Any] = field(default_factory=dict)
+    correlation_meta: Dict[str, Any] = field(default_factory=dict)
 
 
 class HeatTransferCoefficient:
-    """Wrapper pour appeler une corrélation de HTC."""
+    """Wrapper pour appeler une corrélation de HTC.
+
+    Attributes:
+        metadata: Informations sur la corrélation (domaine, convection, géométrie, ...).
+    """
 
     def __init__(self, correlation: str):
         if correlation not in HTC_CORRELATIONS:
@@ -24,6 +29,7 @@ class HeatTransferCoefficient:
             )
         self.correlation_name = correlation
         self.func = HTC_CORRELATIONS[correlation]
+        self.metadata = dict(getattr(self.func, "metadata", {}))
 
     @staticmethod
     def available() -> list[str]:
@@ -38,6 +44,7 @@ class HeatTransferCoefficient:
                 valid=True,
                 message="OK",
                 meta=kwargs,
+                correlation_meta=dict(self.metadata),
             )
         except ValueError as exc:
             return HTCResult(
@@ -46,6 +53,7 @@ class HeatTransferCoefficient:
                 valid=False,
                 message=str(exc),
                 meta=kwargs,
+                correlation_meta=dict(self.metadata),
             )
         except Exception as exc:  # pylint: disable=broad-except
             return HTCResult(
@@ -54,6 +62,7 @@ class HeatTransferCoefficient:
                 valid=False,
                 message=f"Erreur interne: {exc}",
                 meta=kwargs,
+                correlation_meta=dict(self.metadata),
             )
 
 
