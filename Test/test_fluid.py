@@ -1,11 +1,16 @@
 """Tests for the CoolProp-backed fluid property helper."""
 
+import importlib.util
 import math
 import unittest
 
 from Source import FluidProperties
 
 
+COOLPROP_AVAILABLE = importlib.util.find_spec("CoolProp") is not None
+
+
+@unittest.skipUnless(COOLPROP_AVAILABLE, "CoolProp n'est pas disponible dans l'environnement de test")
 class TestFluidProperties(unittest.TestCase):
     def setUp(self) -> None:
         self.water = FluidProperties("Water")
