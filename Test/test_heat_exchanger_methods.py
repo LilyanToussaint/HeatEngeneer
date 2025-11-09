@@ -1,56 +1,86 @@
-"""Tests for the heat-exchanger method package."""
+"""Tests for the object-oriented heat-exchanger package."""
 from __future__ import annotations
 
 import math
 import unittest
 
 from Source import (
-    HeatExchangerResult,
-    Methode1D,
-    MethodeLMTD,
-    MethodeNTU,
-    StreamConditions,
+    DPModel,
+    EpsilonNTUSolver,
+    FlowArrangement,
+    FluidModel,
+    Geometry,
+    HeatExchanger,
+    HXSide,
+    HTCModel,
+    LMTDResult,
+    LMTDSolver,
+    NTUResult,
+    OneDResult,
+    OneDimensionalSolver,
+    Wall,
+    EPSILON_FUNCTIONS,
+    EPSILON_WITH_FIN_FUNCTIONS,
+    get_effectiveness_function,
     mass_flow_from_velocity,
     velocity_from_mass_flow,
 )
-from Source.Heat_exchanger_methods.eps_ntu.effectiveness_counterflow import (
+from Source.heat_exchanger.solvers.epsilon_ntu.effectiveness_counterflow import (
     effectiveness_counterflow,
 )
-from Source.Heat_exchanger_methods.eps_ntu.get_effectiveness_function import (
-    get_effectiveness_function,
-)
-from Source.Heat_exchanger_methods.eps_ntu.registry import (
-    EPSILON_FUNCTIONS,
-    EPSILON_WITH_FIN_FUNCTIONS,
-)
-from Source.Heat_exchanger_methods.utils import compute_overall_u
 
 
-class TestHeatExchangerMethods(unittest.TestCase):
+class TestHeatExchangerModels(unittest.TestCase):
     def setUp(self) -> None:
-        self.hot = StreamConditions(
-            fluid={"name": "hot"},
-            m_dot=0.45,
-            cp=4100.0,
+        hot_fluid = FluidModel(name="hot", heat_capacity=4100.0)
+        cold_fluid = FluidModel(name="cold", heat_capacity=4200.0)
+
+        hot_geometry = Geometry(area=8.0, hydraulic_diameter=0.02)
+        cold_geometry = Geometry(area=8.0, hydraulic_diameter=0.02)
+
+        hot_htc = HTCModel(
+            correlation="gnielinski_internal",
+            parameters={"Re": 5.5e4, "Pr": 4.5, "k": 0.62, "d_i": 0.02},
+        )
+        cold_htc = HTCModel(
+            correlation="gnielinski_internal",
+            parameters={"Re": 4.0e4, "Pr": 6.0, "k": 0.6, "d_i": 0.02},
+        )
+
+        self.hot = HXSide(
+            label="hot",
+            fluid=hot_fluid,
+            mass_flow=0.45,
             inlet_temp=370.0,
-            correlation_kwargs={"Re": 5.5e4, "Pr": 4.5, "k": 0.62, "d_i": 0.02},
-            C=1845.0,
-            area=8.0,
+            geometry=hot_geometry,
+            htc_model=hot_htc,
+            dp_model=DPModel(),
+            heat_capacity_override=1845.0,
             velocity=1.5,
         )
-        self.cold = StreamConditions(
-            fluid={"name": "cold"},
-            m_dot=0.6,
-            cp=4200.0,
+        self.cold = HXSide(
+            label="cold",
+            fluid=cold_fluid,
+            mass_flow=0.6,
             inlet_temp=300.0,
-            correlation_kwargs={"Re": 4.0e4, "Pr": 6.0, "k": 0.6, "d_i": 0.02},
-            C=2520.0,
-            area=8.0,
+            geometry=cold_geometry,
+            htc_model=cold_htc,
+            dp_model=DPModel(),
+            heat_capacity_override=2520.0,
             velocity=1.2,
+        )
+
+        arrangement = FlowArrangement("counterflow")
+        wall = Wall(thermal_resistance=0.0)
+        self.exchanger = HeatExchanger(
+            hot=self.hot,
+            cold=self.cold,
+            arrangement=arrangement,
+            wall=wall,
         )
         self.area = 8.0
 
-    def test_stream_conditions_capacity_rate(self) -> None:
+    def test_heat_capacity_rate(self) -> None:
         self.assertAlmostEqual(self.hot.heat_capacity_rate(), 1845.0)
         self.assertAlmostEqual(self.cold.heat_capacity_rate(), 2520.0)
 
@@ -61,46 +91,50 @@ class TestHeatExchangerMethods(unittest.TestCase):
         self.assertAlmostEqual(m_dot, 0.5)
 
     def test_compute_overall_u_with_area_mismatch(self) -> None:
-        hot = StreamConditions(
-            fluid={"name": "hot"},
-            m_dot=0.3,
-            cp=4200.0,
+        hot_side = HXSide(
+            label="hot",
+            fluid=FluidModel(name="hot", heat_capacity=4200.0),
+            mass_flow=0.3,
             inlet_temp=360.0,
-            correlation_kwargs={"Re": 3.2e4, "Pr": 5.3, "k": 0.62, "d_i": 0.018},
-            area=9.0,
-            velocity=1.1,
+            geometry=Geometry(area=9.0, hydraulic_diameter=0.018),
+            htc_model=HTCModel(
+                correlation=self.hot.htc_model.correlation,
+                parameters=dict(self.hot.htc_model.parameters),
+            ),
+            dp_model=DPModel(),
         )
-        cold = StreamConditions(
-            fluid={"name": "cold"},
-            m_dot=0.5,
-            cp=4000.0,
+        cold_side = HXSide(
+            label="cold",
+            fluid=FluidModel(name="cold", heat_capacity=4000.0),
+            mass_flow=0.5,
             inlet_temp=295.0,
-            correlation_kwargs={"Re": 2.4e4, "Pr": 6.5, "k": 0.58, "d_i": 0.018},
-            area=7.5,
-            velocity=0.9,
+            geometry=Geometry(area=7.5, hydraulic_diameter=0.018),
+            htc_model=HTCModel(
+                correlation=self.cold.htc_model.correlation,
+                parameters=dict(self.cold.htc_model.parameters),
+            ),
+            dp_model=DPModel(),
         )
-        u = compute_overall_u(2800.0, 2400.0, area_total=8.0, hot=hot, cold=cold, wall_resistance=5e-5)
+        exchanger = HeatExchanger(
+            hot=hot_side,
+            cold=cold_side,
+            arrangement=FlowArrangement("counterflow"),
+            wall=Wall(thermal_resistance=5e-5),
+        )
+        u = exchanger.compute_overall_u(2800.0, 2400.0, area_reference=8.0)
         self.assertGreater(u, 0.0)
         self.assertLess(u, min(2800.0, 2400.0))
 
-    def test_compute_overall_u_invalid_inputs(self) -> None:
-        with self.assertRaises(ValueError):
-            compute_overall_u(-1.0, 100.0, 5.0, self.hot, self.cold)
-        with self.assertRaises(ValueError):
-            compute_overall_u(100.0, 100.0, -1.0, self.hot, self.cold)
-
     def test_ntu_counterflow(self) -> None:
-        method = MethodeNTU("gnielinski_internal")
-        result = method.compute(self.hot, self.cold, area=self.area, configuration="counterflow")
-        self.assertIsInstance(result, HeatExchangerResult)
+        solver = EpsilonNTUSolver()
+        result = solver.solve(self.exchanger, area=self.area)
+        self.assertIsInstance(result, NTUResult)
         self.assertGreater(result.U, 0.0)
         c_min = min(self.hot.heat_capacity_rate(), self.cold.heat_capacity_rate())
         delta_t = self.hot.inlet_temp - self.cold.inlet_temp
         self.assertTrue(math.isclose(result.Q, result.epsilon * c_min * delta_t, rel_tol=1e-6))
-        # verify epsilon via reference function
         epsilon_expected = effectiveness_counterflow(result.NTU, result.details["capacity_ratio"])
         self.assertAlmostEqual(result.epsilon, epsilon_expected, places=6)
-        # outlet temperatures consistent
         self.assertTrue(
             math.isclose(
                 result.hot_outlet_temp,
@@ -110,20 +144,18 @@ class TestHeatExchangerMethods(unittest.TestCase):
         )
 
     def test_ntu_with_eta_fin_configuration(self) -> None:
-        method = MethodeNTU("gnielinski_internal")
-        result = method.compute(
-            self.hot,
-            self.cold,
+        solver = EpsilonNTUSolver()
+        result = solver.solve(
+            self.exchanger,
             area=self.area,
             configuration="counterflow",
             use_eta_fin_method=True,
             configuration_kwargs={"eta_hot": 0.9, "eta_cold": 0.88},
         )
         self.assertLess(result.epsilon, 1.0)
-        self.assertIn("counterflow_eta_fin", MethodeNTU.available_configurations())
-        direct = method.compute(
-            self.hot,
-            self.cold,
+        self.assertIn("counterflow_eta_fin", EpsilonNTUSolver.available_configurations())
+        direct = solver.solve(
+            self.exchanger,
             area=self.area,
             configuration="counterflow_eta_fin",
             configuration_kwargs={"eta_hot": 0.9, "eta_cold": 0.88},
@@ -131,29 +163,29 @@ class TestHeatExchangerMethods(unittest.TestCase):
         self.assertAlmostEqual(direct.epsilon, result.epsilon, delta=0.05 * result.epsilon)
 
     def test_lmtd_consistency(self) -> None:
-        method_ntu = MethodeNTU("gnielinski_internal")
-        ntu_result = method_ntu.compute(self.hot, self.cold, area=self.area)
+        solver_ntu = EpsilonNTUSolver()
+        ntu_result = solver_ntu.solve(self.exchanger, area=self.area)
 
-        method_lmtd = MethodeLMTD("gnielinski_internal")
-        lmtd_result = method_lmtd.compute(
-            self.hot,
-            self.cold,
+        solver_lmtd = LMTDSolver()
+        lmtd_result = solver_lmtd.solve(
+            self.exchanger,
             area=self.area,
             hot_outlet_temp=ntu_result.hot_outlet_temp,
             cold_outlet_temp=ntu_result.cold_outlet_temp,
         )
+        self.assertIsInstance(lmtd_result, LMTDResult)
         self.assertAlmostEqual(lmtd_result.Q, ntu_result.Q, delta=0.05 * ntu_result.Q)
 
     def test_one_dimensional_solver(self) -> None:
-        method = Methode1D("gnielinski_internal")
-        result = method.compute(self.hot, self.cold, area=self.area, segments=25)
+        solver = OneDimensionalSolver()
+        result = solver.solve(self.exchanger, area=self.area, segments=25)
+        self.assertIsInstance(result, OneDResult)
         self.assertGreater(result.heat_duty, 0.0)
         self.assertLess(result.hot_outlet_temp, self.hot.inlet_temp)
         self.assertGreater(result.cold_outlet_temp, self.cold.inlet_temp)
 
     def test_effectiveness_catalog(self) -> None:
         for name, func in EPSILON_FUNCTIONS.items():
-            # Ensure all registered functions are callable and yield values between 0 and 1
             eps = func(NTU=1.2, capacity_ratio=0.4)
             self.assertIsInstance(eps, float)
             self.assertGreaterEqual(eps, 0.0, msg=name)

@@ -1,50 +1,62 @@
-"""Demonstrate the three heat-exchanger calculation approaches."""
+"""Demonstration script for the refactored heat-exchanger API."""
 from __future__ import annotations
 
 import pathlib
 import sys
-
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Source import (  # noqa: E402  (import after sys.path tweaks)
-    Methode1D,
-    MethodeLMTD,
-    MethodeNTU,
-    StreamConditions,
+    EpsilonNTUSolver,
+    FlowArrangement,
+    FluidModel,
+    Geometry,
+    HeatExchanger,
+    HXSide,
+    HTCModel,
+    LMTDSolver,
+    OneDimensionalSolver,
+    Wall,
 )
 
-
-HOT_STREAM = StreamConditions(
-    fluid={"name": "huile"},
-    m_dot=0.35,
-    cp=3900.0,
+hot_side = HXSide(
+    label="hot",
+    fluid=FluidModel(name="huile", heat_capacity=3900.0),
+    mass_flow=0.35,
     inlet_temp=380.0,
-    correlation_kwargs={"Re": 4.8e4, "Pr": 5.5, "k": 0.63, "d_i": 0.018},
-    C=0.35 * 3900.0,
-    area=7.5,
-    velocity=1.4,
+    geometry=Geometry(area=7.5, hydraulic_diameter=0.018),
+    htc_model=HTCModel(
+        correlation="gnielinski_internal",
+        parameters={"Re": 4.8e4, "Pr": 5.5, "k": 0.63, "d_i": 0.018},
+    ),
 )
 
-COLD_STREAM = StreamConditions(
-    fluid={"name": "eau"},
-    m_dot=0.5,
-    cp=4180.0,
+cold_side = HXSide(
+    label="cold",
+    fluid=FluidModel(name="eau", heat_capacity=4180.0),
+    mass_flow=0.5,
     inlet_temp=295.0,
-    correlation_kwargs={"Re": 3.2e4, "Pr": 6.4, "k": 0.58, "d_i": 0.018},
-    C=0.5 * 4180.0,
-    area=7.5,
-    velocity=1.0,
+    geometry=Geometry(area=7.5, hydraulic_diameter=0.018),
+    htc_model=HTCModel(
+        correlation="gnielinski_internal",
+        parameters={"Re": 3.2e4, "Pr": 6.4, "k": 0.58, "d_i": 0.018},
+    ),
 )
 
+EXCHANGER = HeatExchanger(
+    hot=hot_side,
+    cold=cold_side,
+    arrangement=FlowArrangement("counterflow"),
+    wall=Wall(thermal_resistance=0.0),
+)
 AREA = 7.5
 
 
 def run_ntu() -> None:
-    method = MethodeNTU("gnielinski_internal")
-    result = method.compute(HOT_STREAM, COLD_STREAM, area=AREA, configuration="counterflow")
+    solver = EpsilonNTUSolver()
+    result = solver.solve(EXCHANGER, area=AREA)
     print("=== Méthode epsilon-NTU ===")
     print(f"NTU       : {result.NTU:.3f}")
     print(f"epsilon   : {result.epsilon:.3f}")
@@ -55,28 +67,25 @@ def run_ntu() -> None:
 
 
 def run_lmtd() -> None:
-    method = MethodeLMTD("gnielinski_internal")
-    ntu = MethodeNTU("gnielinski_internal").compute(
-        HOT_STREAM, COLD_STREAM, area=AREA, configuration="counterflow"
-    )
-    result = method.compute(
-        HOT_STREAM,
-        COLD_STREAM,
+    ntu_result = EpsilonNTUSolver().solve(EXCHANGER, area=AREA)
+    solver = LMTDSolver()
+    result = solver.solve(
+        EXCHANGER,
         area=AREA,
-        hot_outlet_temp=ntu.hot_outlet_temp,
-        cold_outlet_temp=ntu.cold_outlet_temp,
+        hot_outlet_temp=ntu_result.hot_outlet_temp,
+        cold_outlet_temp=ntu_result.cold_outlet_temp,
     )
     print("=== Méthode LMTD ===")
-    print(f"LMTD corr : {result.lmtd_corrected:.2f} K")
+    print(f"LMTD corr : {result.delta_t_lm:.2f} K")
     print(f"Q (kW)    : {result.Q / 1000:.2f}")
     print(f"Facteur F : {result.correction_factor:.3f}\n")
 
 
 def run_1d() -> None:
-    method = Methode1D("gnielinski_internal")
-    result = method.compute(HOT_STREAM, COLD_STREAM, area=AREA, segments=30)
+    solver = OneDimensionalSolver()
+    result = solver.solve(EXCHANGER, area=AREA, segments=30)
     print("=== Modèle 1D segmenté ===")
-    print(f"Segments : {len(result.temperature_profile_hot)}")
+    print(f"Segments : {result.segments}")
     print(f"Q (kW)   : {result.heat_duty / 1000:.2f}")
     print(f"T_hot_out: {result.hot_outlet_temp:.1f} K")
     print(f"T_cold_out: {result.cold_outlet_temp:.1f} K")

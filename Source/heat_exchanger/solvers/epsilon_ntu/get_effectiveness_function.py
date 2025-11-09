@@ -1,5 +1,4 @@
 """Lookup helper for epsilon-NTU effectiveness relations."""
-
 from __future__ import annotations
 
 from typing import Callable, Tuple

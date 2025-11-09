@@ -1,18 +1,17 @@
-"""Epsilon-NTU method implementation relying on the HTC wrapper."""
+"""Epsilon-NTU solver that operates on the high-level exchanger model."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from Source.Heat_transfer_coefficient import HeatTransferCoefficient
+from ...heat_exchanger import HeatExchanger
+from ...solver import HeatExchangerSolver
+from .get_effectiveness_function import get_effectiveness_function
+from .registry import EPSILON_FUNCTIONS, EPSILON_WITH_FIN_FUNCTIONS
 
-from .eps_ntu.get_effectiveness_function import get_effectiveness_function
-from .eps_ntu.registry import EPSILON_FUNCTIONS, EPSILON_WITH_FIN_FUNCTIONS
-from .utils import StreamConditions, compute_overall_u
 
-
-@dataclass
-class HeatExchangerResult:
+@dataclass(slots=True)
+class NTUResult:
     """Return data for heat-exchanger calculations."""
 
     epsilon: float
@@ -24,48 +23,34 @@ class HeatExchangerResult:
     details: Dict[str, Any] = field(default_factory=dict)
 
 
-class MethodeNTU:
+class EpsilonNTUSolver(HeatExchangerSolver):
     """Compute heat-exchanger duty via the epsilon-NTU approach."""
 
-    def __init__(self, hot_correlation: str, cold_correlation: Optional[str] = None):
-        self.hot_wrapper = HeatTransferCoefficient(hot_correlation)
-        self.cold_wrapper = HeatTransferCoefficient(cold_correlation or hot_correlation)
+    def __init__(self) -> None:
+        super().__init__(name="epsilon-ntu")
 
     @staticmethod
     def available_configurations() -> list[str]:
         return sorted(list(EPSILON_FUNCTIONS) + list(EPSILON_WITH_FIN_FUNCTIONS))
 
-    def compute(
+    def solve(
         self,
-        hot: StreamConditions,
-        cold: StreamConditions,
+        exchanger: HeatExchanger,
         area: float,
-        configuration: str = "counterflow",
-        wall_resistance: float = 0.0,
+        configuration: Optional[str] = None,
         configuration_kwargs: Optional[Dict[str, Any]] = None,
         use_eta_fin_method: bool = False,
-    ) -> HeatExchangerResult:
+    ) -> NTUResult:
         configuration_kwargs = configuration_kwargs or {}
+        config_name = configuration or exchanger.arrangement.name
 
-        hot_result = self.hot_wrapper.compute(**hot.correlation_kwargs)
-        cold_result = self.cold_wrapper.compute(**cold.correlation_kwargs)
+        h_hot = exchanger.hot.compute_htc()
+        h_cold = exchanger.cold.compute_htc()
 
-        if not hot_result.valid:
-            raise ValueError(f"Corrélation chaude invalide: {hot_result.message}")
-        if not cold_result.valid:
-            raise ValueError(f"Corrélation froide invalide: {cold_result.message}")
+        overall_u = exchanger.compute_overall_u(h_hot=h_hot, h_cold=h_cold, area_reference=area)
 
-        overall_u = compute_overall_u(
-            h_hot=hot_result.h,
-            h_cold=cold_result.h,
-            area_total=area,
-            hot=hot,
-            cold=cold,
-            wall_resistance=wall_resistance,
-        )
-
-        c_hot = hot.heat_capacity_rate()
-        c_cold = cold.heat_capacity_rate()
+        c_hot = exchanger.hot.heat_capacity_rate()
+        c_cold = exchanger.cold.heat_capacity_rate()
 
         if c_hot <= 0 or c_cold <= 0:
             raise ValueError("Les capacités calorifiques doivent être positives.")
@@ -76,11 +61,12 @@ class MethodeNTU:
 
         NTU = overall_u * area / c_min
 
-        func, needs_eta = get_effectiveness_function(configuration)
+        func, needs_eta = get_effectiveness_function(config_name)
 
         if use_eta_fin_method and not needs_eta:
-            alt_name = f"{configuration}_eta_fin"
+            alt_name = f"{config_name}_eta_fin"
             func, needs_eta = get_effectiveness_function(alt_name)
+            config_name = alt_name
 
         kwargs = dict(configuration_kwargs)
 
@@ -96,25 +82,25 @@ class MethodeNTU:
         else:
             epsilon = func(NTU, capacity_ratio, **kwargs)
 
-        delta_t_inlet = hot.inlet_temp - cold.inlet_temp
+        delta_t_inlet = exchanger.hot.inlet_temp - exchanger.cold.inlet_temp
         Q_max = c_min * delta_t_inlet
         Q = epsilon * Q_max
 
-        hot_outlet = hot.inlet_temp - Q / c_hot
-        cold_outlet = cold.inlet_temp + Q / c_cold
+        hot_outlet = exchanger.hot.inlet_temp - Q / c_hot
+        cold_outlet = exchanger.cold.inlet_temp + Q / c_cold
 
         details = {
-            "h_hot": hot_result.h,
-            "h_cold": cold_result.h,
+            "h_hot": h_hot,
+            "h_cold": h_cold,
             "NTU": NTU,
             "capacity_ratio": capacity_ratio,
-            "configuration": configuration,
-            "hot_metadata": hot_result.correlation_meta,
-            "cold_metadata": cold_result.correlation_meta,
+            "configuration": config_name,
             "overall_u": overall_u,
+            "hot_metadata": exchanger.hot.htc_model.metadata,
+            "cold_metadata": exchanger.cold.htc_model.metadata,
         }
 
-        return HeatExchangerResult(
+        return NTUResult(
             epsilon=epsilon,
             NTU=NTU,
             U=overall_u,
