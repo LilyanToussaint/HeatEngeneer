@@ -18,19 +18,25 @@ from Source import (  # noqa: E402  (import after sys.path tweaks)
 
 
 HOT_STREAM = StreamConditions(
+    fluid={"name": "huile"},
     m_dot=0.35,
     cp=3900.0,
     inlet_temp=380.0,
     correlation_kwargs={"Re": 4.8e4, "Pr": 5.5, "k": 0.63, "d_i": 0.018},
-    fin_efficiency=0.93,
+    C=0.35 * 3900.0,
+    area=7.5,
+    velocity=1.4,
 )
 
 COLD_STREAM = StreamConditions(
+    fluid={"name": "eau"},
     m_dot=0.5,
     cp=4180.0,
     inlet_temp=295.0,
     correlation_kwargs={"Re": 3.2e4, "Pr": 6.4, "k": 0.58, "d_i": 0.018},
-    fin_efficiency=0.9,
+    C=0.5 * 4180.0,
+    area=7.5,
+    velocity=1.0,
 )
 
 AREA = 7.5

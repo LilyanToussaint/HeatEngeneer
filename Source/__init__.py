@@ -1,6 +1,11 @@
 """Heat transfer computation utilities."""
 
-from .common import prandtl_number, reynolds_number
+from .common import (
+    mass_flow_from_velocity,
+    prandtl_number,
+    reynolds_number,
+    velocity_from_mass_flow,
+)
 try:
     from .Fluid import FluidProperties, FluidPropertyError, FluidState
     _COOLPROP_AVAILABLE = True
@@ -58,4 +63,6 @@ __all__ = [
     "MaterialProperties",
     "reynolds_number",
     "prandtl_number",
+    "velocity_from_mass_flow",
+    "mass_flow_from_velocity",
 ]

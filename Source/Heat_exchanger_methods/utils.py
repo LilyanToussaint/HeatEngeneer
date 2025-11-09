@@ -9,15 +9,18 @@ from typing import Any, Dict, Optional
 class StreamConditions:
     """Input data required for heat-exchanger calculations."""
 
+    fluid: Any
     m_dot: float
     cp: float
     inlet_temp: float
     correlation_kwargs: Dict[str, Any]
-    fin_efficiency: float = 1.0
+    C: Optional[float] = None
     area: Optional[float] = None
-    fouling_resistance: float = 0.0
+    velocity: Optional[float] = None
 
     def heat_capacity_rate(self) -> float:
+        if self.C is not None:
+            return self.C
         return self.m_dot * self.cp
 
 
@@ -31,8 +34,8 @@ def compute_overall_u(
 ) -> float:
     """Return the overall heat-transfer coefficient referenced to ``area_total``.
 
-    The function includes optional fin efficiencies, unequal surface areas, and
-    fouling resistances supplied within :class:`StreamConditions`.
+    The function includes optional unequal surface areas supplied within
+    :class:`StreamConditions`.
     """
 
     if area_total <= 0:
@@ -40,9 +43,6 @@ def compute_overall_u(
 
     if h_hot <= 0 or h_cold <= 0:
         raise ValueError("Les coefficients de convection doivent être positifs.")
-
-    if hot.fin_efficiency <= 0 or cold.fin_efficiency <= 0:
-        raise ValueError("Les efficacités d'ailettes doivent être positives.")
 
     hot_area = hot.area or area_total
     cold_area = cold.area or area_total
@@ -53,12 +53,10 @@ def compute_overall_u(
     area_ratio_hot = area_total / hot_area
     area_ratio_cold = area_total / cold_area
 
-    r_hot = area_ratio_hot / (hot.fin_efficiency * h_hot)
-    r_cold = area_ratio_cold / (cold.fin_efficiency * h_cold)
+    r_hot = area_ratio_hot / h_hot
+    r_cold = area_ratio_cold / h_cold
 
-    total_resistance = (
-        r_hot + hot.fouling_resistance + wall_resistance + cold.fouling_resistance + r_cold
-    )
+    total_resistance = r_hot + wall_resistance + r_cold
 
     if total_resistance <= 0:
         raise ValueError("La résistance thermique totale doit être positive.")

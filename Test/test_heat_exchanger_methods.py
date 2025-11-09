@@ -10,6 +10,8 @@ from Source import (
     MethodeLMTD,
     MethodeNTU,
     StreamConditions,
+    mass_flow_from_velocity,
+    velocity_from_mass_flow,
 )
 from Source.Heat_exchanger_methods.eps_ntu.effectiveness_counterflow import (
     effectiveness_counterflow,
@@ -27,18 +29,24 @@ from Source.Heat_exchanger_methods.utils import compute_overall_u
 class TestHeatExchangerMethods(unittest.TestCase):
     def setUp(self) -> None:
         self.hot = StreamConditions(
+            fluid={"name": "hot"},
             m_dot=0.45,
             cp=4100.0,
             inlet_temp=370.0,
             correlation_kwargs={"Re": 5.5e4, "Pr": 4.5, "k": 0.62, "d_i": 0.02},
-            fin_efficiency=0.92,
+            C=1845.0,
+            area=8.0,
+            velocity=1.5,
         )
         self.cold = StreamConditions(
+            fluid={"name": "cold"},
             m_dot=0.6,
             cp=4200.0,
             inlet_temp=300.0,
             correlation_kwargs={"Re": 4.0e4, "Pr": 6.0, "k": 0.6, "d_i": 0.02},
-            fin_efficiency=0.95,
+            C=2520.0,
+            area=8.0,
+            velocity=1.2,
         )
         self.area = 8.0
 
@@ -46,24 +54,30 @@ class TestHeatExchangerMethods(unittest.TestCase):
         self.assertAlmostEqual(self.hot.heat_capacity_rate(), 1845.0)
         self.assertAlmostEqual(self.cold.heat_capacity_rate(), 2520.0)
 
-    def test_compute_overall_u_with_fouling_and_fin(self) -> None:
+    def test_velocity_mass_flow_helpers(self) -> None:
+        v = velocity_from_mass_flow(m_dot=0.5, density=997.0, area=0.02)
+        self.assertAlmostEqual(v, 0.5 / (997.0 * 0.02))
+        m_dot = mass_flow_from_velocity(velocity=v, density=997.0, area=0.02)
+        self.assertAlmostEqual(m_dot, 0.5)
+
+    def test_compute_overall_u_with_area_mismatch(self) -> None:
         hot = StreamConditions(
+            fluid={"name": "hot"},
             m_dot=0.3,
             cp=4200.0,
             inlet_temp=360.0,
             correlation_kwargs={"Re": 3.2e4, "Pr": 5.3, "k": 0.62, "d_i": 0.018},
-            fin_efficiency=0.9,
             area=9.0,
-            fouling_resistance=1.2e-4,
+            velocity=1.1,
         )
         cold = StreamConditions(
+            fluid={"name": "cold"},
             m_dot=0.5,
             cp=4000.0,
             inlet_temp=295.0,
             correlation_kwargs={"Re": 2.4e4, "Pr": 6.5, "k": 0.58, "d_i": 0.018},
-            fin_efficiency=0.88,
             area=7.5,
-            fouling_resistance=0.8e-4,
+            velocity=0.9,
         )
         u = compute_overall_u(2800.0, 2400.0, area_total=8.0, hot=hot, cold=cold, wall_resistance=5e-5)
         self.assertGreater(u, 0.0)
@@ -103,6 +117,7 @@ class TestHeatExchangerMethods(unittest.TestCase):
             area=self.area,
             configuration="counterflow",
             use_eta_fin_method=True,
+            configuration_kwargs={"eta_hot": 0.9, "eta_cold": 0.88},
         )
         self.assertLess(result.epsilon, 1.0)
         self.assertIn("counterflow_eta_fin", MethodeNTU.available_configurations())
@@ -111,6 +126,7 @@ class TestHeatExchangerMethods(unittest.TestCase):
             self.cold,
             area=self.area,
             configuration="counterflow_eta_fin",
+            configuration_kwargs={"eta_hot": 0.9, "eta_cold": 0.88},
         )
         self.assertAlmostEqual(direct.epsilon, result.epsilon, delta=0.05 * result.epsilon)
 

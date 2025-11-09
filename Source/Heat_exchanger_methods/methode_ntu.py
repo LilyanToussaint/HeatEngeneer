@@ -78,12 +78,23 @@ class MethodeNTU:
 
         func, needs_eta = get_effectiveness_function(configuration)
 
-        if needs_eta or use_eta_fin_method:
-            eta_hot = hot.fin_efficiency
-            eta_cold = cold.fin_efficiency
-            epsilon = func(NTU, capacity_ratio, eta_hot=eta_hot, eta_cold=eta_cold, **configuration_kwargs)
+        if use_eta_fin_method and not needs_eta:
+            alt_name = f"{configuration}_eta_fin"
+            func, needs_eta = get_effectiveness_function(alt_name)
+
+        kwargs = dict(configuration_kwargs)
+
+        if needs_eta:
+            try:
+                eta_hot = kwargs.pop("eta_hot")
+                eta_cold = kwargs.pop("eta_cold")
+            except KeyError as exc:
+                raise ValueError(
+                    "Les paramètres eta_hot et eta_cold sont requis pour cette configuration."
+                ) from exc
+            epsilon = func(NTU, capacity_ratio, eta_hot=eta_hot, eta_cold=eta_cold, **kwargs)
         else:
-            epsilon = func(NTU, capacity_ratio, **configuration_kwargs)
+            epsilon = func(NTU, capacity_ratio, **kwargs)
 
         delta_t_inlet = hot.inlet_temp - cold.inlet_temp
         Q_max = c_min * delta_t_inlet
