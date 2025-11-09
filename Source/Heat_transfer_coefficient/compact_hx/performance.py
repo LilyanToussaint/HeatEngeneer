@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Callable, Dict, Mapping
 
-from ..correlations.j_colburn_to_h import j_colburn_to_h
-from ..correlations.fanning_f_to_dp import fanning_f_to_dp
+from ..correlations.internal_flow.j_colburn_to_h import j_colburn_to_h
+from ..correlations.internal_flow.fanning_f_to_dp import fanning_f_to_dp
 from ...common import reynolds_number
 
 

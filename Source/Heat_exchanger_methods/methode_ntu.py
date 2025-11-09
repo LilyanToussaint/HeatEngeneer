@@ -6,11 +6,8 @@ from typing import Any, Dict, Optional
 
 from Source.Heat_transfer_coefficient import HeatTransferCoefficient
 
-from .eps_ntu import (
-    EPSILON_FUNCTIONS,
-    EPSILON_WITH_FIN_FUNCTIONS,
-    get_effectiveness_function,
-)
+from .eps_ntu.get_effectiveness_function import get_effectiveness_function
+from .eps_ntu.registry import EPSILON_FUNCTIONS, EPSILON_WITH_FIN_FUNCTIONS
 from .utils import StreamConditions, compute_overall_u
 
 

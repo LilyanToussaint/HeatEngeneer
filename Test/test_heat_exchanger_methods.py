@@ -11,11 +11,15 @@ from Source import (
     MethodeNTU,
     StreamConditions,
 )
-from Source.Heat_exchanger_methods.eps_ntu import (
+from Source.Heat_exchanger_methods.eps_ntu.effectiveness_counterflow import (
+    effectiveness_counterflow,
+)
+from Source.Heat_exchanger_methods.eps_ntu.get_effectiveness_function import (
+    get_effectiveness_function,
+)
+from Source.Heat_exchanger_methods.eps_ntu.registry import (
     EPSILON_FUNCTIONS,
     EPSILON_WITH_FIN_FUNCTIONS,
-    effectiveness_counterflow,
-    get_effectiveness_function,
 )
 from Source.Heat_exchanger_methods.utils import compute_overall_u
 
