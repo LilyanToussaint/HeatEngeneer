@@ -5,7 +5,7 @@ from typing import Callable, Dict, Mapping
 
 from ..correlations.internal_flow.j_colburn_to_h import j_colburn_to_h
 from ..correlations.internal_flow.fanning_f_to_dp import fanning_f_to_dp
-from ...common import reynolds_number
+from Source.util import reynolds_number
 
 
 GeometryMapping = Mapping[str, float]

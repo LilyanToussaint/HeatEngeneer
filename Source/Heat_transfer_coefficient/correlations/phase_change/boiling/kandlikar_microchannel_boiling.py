@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 
-from ...common import reynolds_number
+from Source.util import reynolds_number
 
 
 _METADATA = {

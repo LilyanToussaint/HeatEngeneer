@@ -1,6 +1,6 @@
 """Shah correlation for condensation inside tubes."""
 
-from ...common import reynolds_number
+from Source.util import reynolds_number
 
 _METADATA = {
     "domain": "condensation",

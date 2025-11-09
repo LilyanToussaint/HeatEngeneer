@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from math import isfinite
 
-from ...common import reynolds_number
+from Source.util import reynolds_number
 
 __all__ = ["re_pipe_flow"]
 

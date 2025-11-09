@@ -3,8 +3,7 @@ from __future__ import annotations
 import math
 import unittest
 
-from Source import PressureLossCorrelation
-from Source.common import reynolds_number
+from Source import PressureLossCorrelation, reynolds_number
 from Source.loss_pressure.correlations import (
     convert_head_to_dp,
     dp_darcy_weisbach,

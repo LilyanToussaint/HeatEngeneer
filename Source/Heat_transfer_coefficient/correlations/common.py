@@ -1,7 +1,7 @@
 """Shared helpers for heat-transfer coefficient correlations."""
 from __future__ import annotations
 
-from ...common import reynolds_number as _reynolds_number
+from Source.util import reynolds_number as _reynolds_number
 
 reynolds_number = _reynolds_number
 

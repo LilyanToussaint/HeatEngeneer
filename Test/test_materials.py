@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from Source import Material, MaterialProperties
+from Source import MaterialProperties, SolidMaterial
 
 
 class TestMaterials(unittest.TestCase):
@@ -12,7 +12,7 @@ class TestMaterials(unittest.TestCase):
 
     def test_known_material(self) -> None:
         copper = self.db.get("copper")
-        self.assertIsInstance(copper, Material)
+        self.assertIsInstance(copper, SolidMaterial)
         self.assertGreater(copper.thermal_conductivity, 300.0)
 
     def test_unknown_material(self) -> None:
@@ -20,7 +20,7 @@ class TestMaterials(unittest.TestCase):
             self.db.get("unobtainium")
 
     def test_add_material(self) -> None:
-        titanium = Material(
+        titanium = SolidMaterial(
             name="Titanium",
             density=4500.0,
             heat_capacity=522.0,
