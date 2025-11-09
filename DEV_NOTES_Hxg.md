@@ -9,10 +9,8 @@ complets (ε-NTU, LMTD, instationnaire, etc.).
 
 Le module `Hxg` consommera exclusivement les packages suivants :
 
-- `Source.Fluid` pour la représentation des fluides (`BaseFluid`,
-  `ConstantFluid`, `CoolPropFluid`).
-- `Source.materials` pour les matériaux de paroi (`BaseMaterial`,
-  `SolidMaterial`, `MaterialProperties`).
+- `Source.Fluid` pour la représentation des fluides (classe `CoolPropFluid`).
+- `Source.materials` pour les matériaux de paroi (classe `Material` + base de données).
 - `Source.util` pour les grandeurs de base (Re, Pr, conversions débit ↔ vitesse).
 - `Source.Heat_transfer_coefficient` pour les calculs de coefficients h.
 - `Source.loss_pressure` pour les modèles de pertes de charge.

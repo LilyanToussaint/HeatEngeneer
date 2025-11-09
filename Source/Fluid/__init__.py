@@ -1,8 +1,6 @@
 """Fluid property helpers leveraging CoolProp."""
 from __future__ import annotations
 
-from .BaseFluid import BaseFluid
-from .ConstantFluid import ConstantFluid
 from .FluidPropertyError import FluidPropertyError
 from .FluidState import FluidState
 
@@ -27,10 +25,9 @@ except ModuleNotFoundError as exc:  # pragma: no cover - environment guard
     _COOLPROP_AVAILABLE = False
 
 __all__ = [
-    "BaseFluid",
-    "ConstantFluid",
     "CoolPropFluid",
     "FluidProperties",
     "FluidPropertyError",
     "FluidState",
+    "_COOLPROP_AVAILABLE",
 ]

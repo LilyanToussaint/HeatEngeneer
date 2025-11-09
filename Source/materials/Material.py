@@ -1,13 +1,15 @@
-"""Base class for material definitions."""
+"""Material definition holding thermophysical properties."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
 
+__all__ = ["Material"]
+
 
 @dataclass(frozen=True)
-class BaseMaterial:
-    """Represent minimal metadata shared by all materials."""
+class Material:
+    """Represent a homogeneous material."""
 
     name: str
     density: Optional[float] = None
@@ -15,6 +17,3 @@ class BaseMaterial:
     thermal_conductivity: Optional[float] = None
     emissivity: Optional[float] = None
     poisson_ratio: Optional[float] = None
-
-
-__all__ = ["BaseMaterial"]

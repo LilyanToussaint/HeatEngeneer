@@ -7,8 +7,6 @@ from .util import (
     velocity_from_mass_flow,
 )
 from .Fluid import (
-    BaseFluid,
-    ConstantFluid,
     CoolPropFluid,
     FluidProperties,
     FluidPropertyError,
@@ -19,28 +17,24 @@ from .Fluid import (
 from .Heat_transfer_coefficient import (
     HeatTransferCoefficient,
     HTCResult,
-    hx_compact_performance,
 )
 from .loss_pressure import PressureLossCorrelation, PressureLossResult
-from .materials import BaseMaterial, MaterialProperties, SolidMaterial
+from .materials import Material, MATERIAL_DATABASE
 
 __all__ = [
-    "BaseFluid",
-    "ConstantFluid",
     "CoolPropFluid",
     "FluidProperties",
     "FluidPropertyError",
     "FluidState",
     "HeatTransferCoefficient",
     "HTCResult",
-    "hx_compact_performance",
     "PressureLossCorrelation",
     "PressureLossResult",
-    "BaseMaterial",
-    "SolidMaterial",
-    "MaterialProperties",
+    "Material",
+    "MATERIAL_DATABASE",
     "reynolds_number",
     "prandtl_number",
     "velocity_from_mass_flow",
     "mass_flow_from_velocity",
+    "_COOLPROP_AVAILABLE",
 ]

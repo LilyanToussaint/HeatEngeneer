@@ -5,14 +5,13 @@ from typing import Dict, Iterable, Mapping, Optional
 
 from CoolProp.CoolProp import PropsSI
 
-from .BaseFluid import BaseFluid
 from .FluidPropertyError import FluidPropertyError
 from .FluidState import FluidState
 
 __all__ = ["CoolPropFluid"]
 
 
-class CoolPropFluid(BaseFluid):
+class CoolPropFluid:
     """Helper around CoolProp to evaluate thermophysical properties."""
 
     #: Friendly names mapped to CoolProp input codes
@@ -94,7 +93,6 @@ class CoolPropFluid(BaseFluid):
     )
 
     def __init__(self, fluid: str, backend: Optional[str] = None) -> None:
-        super().__init__(fluid)
         self.fluid = fluid
         self.backend = backend
 
