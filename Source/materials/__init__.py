@@ -1,5 +1,7 @@
-"""Material property helper."""
+"""Material property catalogue and helpers."""
+from __future__ import annotations
 
-from .materials import MaterialProperties, Material
+from .Material import Material
+from .DataMaterials import MATERIAL_DATABASE
 
-__all__ = ["MaterialProperties", "Material"]
+__all__ = ["Material", "MATERIAL_DATABASE"]

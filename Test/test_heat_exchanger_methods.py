@@ -1,158 +1,92 @@
-"""Tests for the heat-exchanger method package."""
 from __future__ import annotations
 
-import math
 import unittest
 
 from Source import (
-    HeatExchangerResult,
-    Methode1D,
-    MethodeLMTD,
-    MethodeNTU,
-    StreamConditions,
+    CoolPropFluid,
+    HeatTransferCoefficient,
+    MATERIAL_DATABASE,
+    PressureLossCorrelation,
+    _COOLPROP_AVAILABLE,
+    mass_flow_from_velocity,
+    prandtl_number,
+    reynolds_number,
+    velocity_from_mass_flow,
 )
-from Source.Heat_exchanger_methods.eps_ntu import (
-    EPSILON_FUNCTIONS,
-    EPSILON_WITH_FIN_FUNCTIONS,
-    effectiveness_counterflow,
-    get_effectiveness_function,
-)
-from Source.Heat_exchanger_methods.utils import compute_overall_u
 
 
-class TestHeatExchangerMethods(unittest.TestCase):
-    def setUp(self) -> None:
-        self.hot = StreamConditions(
-            m_dot=0.45,
-            cp=4100.0,
-            inlet_temp=370.0,
-            correlation_kwargs={"Re": 5.5e4, "Pr": 4.5, "k": 0.62, "d_i": 0.02},
-            fin_efficiency=0.92,
+class TestGenericBuildingBlocks(unittest.TestCase):
+    """Ensure the remaining modules cooperate after the refactor."""
+
+    def test_velocity_mass_flow_helpers(self) -> None:
+        area = 0.02
+        density = 997.0
+        velocity = 1.5
+        m_dot = mass_flow_from_velocity(velocity=velocity, density=density, area=area)
+        self.assertAlmostEqual(velocity, velocity_from_mass_flow(m_dot, density, area))
+
+    def test_dimensionless_helpers(self) -> None:
+        Re = reynolds_number(
+            velocity=2.0,
+            characteristic_length=0.01,
+            density=998.0,
+            dynamic_viscosity=1.0e-3,
         )
-        self.cold = StreamConditions(
-            m_dot=0.6,
-            cp=4200.0,
-            inlet_temp=300.0,
-            correlation_kwargs={"Re": 4.0e4, "Pr": 6.0, "k": 0.6, "d_i": 0.02},
-            fin_efficiency=0.95,
+        Pr = prandtl_number(
+            dynamic_viscosity=1.0e-3,
+            heat_capacity=4182.0,
+            thermal_conductivity=0.6,
         )
-        self.area = 8.0
+        self.assertGreater(Re, 0.0)
+        self.assertGreater(Pr, 0.0)
 
-    def test_stream_conditions_capacity_rate(self) -> None:
-        self.assertAlmostEqual(self.hot.heat_capacity_rate(), 1845.0)
-        self.assertAlmostEqual(self.cold.heat_capacity_rate(), 2520.0)
-
-    def test_compute_overall_u_with_fouling_and_fin(self) -> None:
-        hot = StreamConditions(
-            m_dot=0.3,
-            cp=4200.0,
-            inlet_temp=360.0,
-            correlation_kwargs={"Re": 3.2e4, "Pr": 5.3, "k": 0.62, "d_i": 0.018},
-            fin_efficiency=0.9,
-            area=9.0,
-            fouling_resistance=1.2e-4,
+    def test_heat_transfer_wrapper(self) -> None:
+        params = dict(Re=2.5e4, Pr=7.0, k=0.6, d_i=0.01)
+        f = (0.79 * params["Re"] ** -0.25 - 0.64) ** 2
+        nu = (f / 8.0) * (params["Re"] - 1000.0) * params["Pr"] / (
+            1.0 + 12.7 * (f / 8.0) ** 0.5 * (params["Pr"] ** (2.0 / 3.0) - 1.0)
         )
-        cold = StreamConditions(
-            m_dot=0.5,
-            cp=4000.0,
-            inlet_temp=295.0,
-            correlation_kwargs={"Re": 2.4e4, "Pr": 6.5, "k": 0.58, "d_i": 0.018},
-            fin_efficiency=0.88,
-            area=7.5,
-            fouling_resistance=0.8e-4,
+        expected = nu * params["k"] / params["d_i"]
+
+        htc = HeatTransferCoefficient("gnielinski_internal")
+        result = htc.compute(**params)
+        self.assertTrue(result.valid)
+        self.assertAlmostEqual(result.h, expected, places=9)
+
+    def test_pressure_loss_wrapper(self) -> None:
+        params = dict(
+            friction_factor=0.02,
+            length=5.0,
+            diameter=0.05,
+            density=1000.0,
+            velocity=1.2,
         )
-        u = compute_overall_u(2800.0, 2400.0, area_total=8.0, hot=hot, cold=cold, wall_resistance=5e-5)
-        self.assertGreater(u, 0.0)
-        self.assertLess(u, min(2800.0, 2400.0))
-
-    def test_compute_overall_u_invalid_inputs(self) -> None:
-        with self.assertRaises(ValueError):
-            compute_overall_u(-1.0, 100.0, 5.0, self.hot, self.cold)
-        with self.assertRaises(ValueError):
-            compute_overall_u(100.0, 100.0, -1.0, self.hot, self.cold)
-
-    def test_ntu_counterflow(self) -> None:
-        method = MethodeNTU("gnielinski_internal")
-        result = method.compute(self.hot, self.cold, area=self.area, configuration="counterflow")
-        self.assertIsInstance(result, HeatExchangerResult)
-        self.assertGreater(result.U, 0.0)
-        c_min = min(self.hot.heat_capacity_rate(), self.cold.heat_capacity_rate())
-        delta_t = self.hot.inlet_temp - self.cold.inlet_temp
-        self.assertTrue(math.isclose(result.Q, result.epsilon * c_min * delta_t, rel_tol=1e-6))
-        # verify epsilon via reference function
-        epsilon_expected = effectiveness_counterflow(result.NTU, result.details["capacity_ratio"])
-        self.assertAlmostEqual(result.epsilon, epsilon_expected, places=6)
-        # outlet temperatures consistent
-        self.assertTrue(
-            math.isclose(
-                result.hot_outlet_temp,
-                self.hot.inlet_temp - result.Q / self.hot.heat_capacity_rate(),
-                rel_tol=1e-6,
-            )
+        expected = (
+            params["friction_factor"]
+            * params["length"]
+            * params["density"]
+            * params["velocity"]**2
+            / (2.0 * params["diameter"])
         )
+        wrapper = PressureLossCorrelation("darcy_weisbach")
+        result = wrapper.compute(**params)
+        self.assertTrue(result.valid)
+        self.assertAlmostEqual(result.delta_p, expected, places=9)
 
-    def test_ntu_with_eta_fin_configuration(self) -> None:
-        method = MethodeNTU("gnielinski_internal")
-        result = method.compute(
-            self.hot,
-            self.cold,
-            area=self.area,
-            configuration="counterflow",
-            use_eta_fin_method=True,
-        )
-        self.assertLess(result.epsilon, 1.0)
-        self.assertIn("counterflow_eta_fin", MethodeNTU.available_configurations())
-        direct = method.compute(
-            self.hot,
-            self.cold,
-            area=self.area,
-            configuration="counterflow_eta_fin",
-        )
-        self.assertAlmostEqual(direct.epsilon, result.epsilon, delta=0.05 * result.epsilon)
+    def test_material_database_access(self) -> None:
+        aluminium = MATERIAL_DATABASE["aluminium"]
+        self.assertGreater(aluminium.thermal_conductivity or 0.0, 0.0)
+        self.assertIn("water", MATERIAL_DATABASE)
 
-    def test_lmtd_consistency(self) -> None:
-        method_ntu = MethodeNTU("gnielinski_internal")
-        ntu_result = method_ntu.compute(self.hot, self.cold, area=self.area)
-
-        method_lmtd = MethodeLMTD("gnielinski_internal")
-        lmtd_result = method_lmtd.compute(
-            self.hot,
-            self.cold,
-            area=self.area,
-            hot_outlet_temp=ntu_result.hot_outlet_temp,
-            cold_outlet_temp=ntu_result.cold_outlet_temp,
-        )
-        self.assertAlmostEqual(lmtd_result.Q, ntu_result.Q, delta=0.05 * ntu_result.Q)
-
-    def test_one_dimensional_solver(self) -> None:
-        method = Methode1D("gnielinski_internal")
-        result = method.compute(self.hot, self.cold, area=self.area, segments=25)
-        self.assertGreater(result.heat_duty, 0.0)
-        self.assertLess(result.hot_outlet_temp, self.hot.inlet_temp)
-        self.assertGreater(result.cold_outlet_temp, self.cold.inlet_temp)
-
-    def test_effectiveness_catalog(self) -> None:
-        for name, func in EPSILON_FUNCTIONS.items():
-            # Ensure all registered functions are callable and yield values between 0 and 1
-            eps = func(NTU=1.2, capacity_ratio=0.4)
-            self.assertIsInstance(eps, float)
-            self.assertGreaterEqual(eps, 0.0, msg=name)
-            self.assertLessEqual(eps, 1.0 + 1e-9, msg=name)
-
-        for name, func in EPSILON_WITH_FIN_FUNCTIONS.items():
-            eps = func(NTU=1.2, capacity_ratio=0.6, eta_hot=0.9, eta_cold=0.85)
-            self.assertGreaterEqual(eps, 0.0, msg=name)
-            self.assertLessEqual(eps, 1.0 + 1e-9, msg=name)
-
-        func, needs_eta = get_effectiveness_function("counterflow")
-        self.assertFalse(needs_eta)
-        self.assertIs(func, effectiveness_counterflow)
-
-        func, needs_eta = get_effectiveness_function("counterflow_eta_fin")
-        self.assertTrue(needs_eta)
-        with self.assertRaises(ValueError):
-            get_effectiveness_function("unknown-config")
+    def test_coolprop_backend_availability(self) -> None:
+        if not _COOLPROP_AVAILABLE:
+            with self.assertRaises(ModuleNotFoundError):
+                CoolPropFluid("Water")
+        else:  # pragma: no cover - requires CoolProp
+            fluid = CoolPropFluid("Water")
+            state = fluid.properties_at(T=300.0, P=101325.0, outputs=("density",))
+            self.assertGreater(state["density"], 0.0)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

@@ -19,6 +19,14 @@ def _registry_key(name: str, func: CorrelationCallable) -> str:
     return name
 
 
+def _module_name_from_path(package_root: Path, module_path: Path) -> str:
+    """Convert a module path to its importable dotted name."""
+
+    relative = module_path.relative_to(package_root)
+    parts = relative.with_suffix("").parts
+    return ".".join((__name__, *parts))
+
+
 def _discover_correlations() -> Tuple[Dict[str, CorrelationCallable], Dict[str, CorrelationCallable]]:
     """Import correlation modules dynamically and build the registry."""
 
@@ -26,11 +34,11 @@ def _discover_correlations() -> Tuple[Dict[str, CorrelationCallable], Dict[str, 
     registry: Dict[str, CorrelationCallable] = {}
     exports: Dict[str, CorrelationCallable] = {}
 
-    for module_path in sorted(package_path.glob("*.py")):
-        if module_path.name == "__init__.py":
+    for module_path in sorted(package_path.rglob("*.py")):
+        if module_path.name == "__init__.py" or "__pycache__" in module_path.parts:
             continue
 
-        module_name = f"{__name__}.{module_path.stem}"
+        module_name = _module_name_from_path(package_path, module_path)
         module = import_module(module_name)
         exported_names = getattr(module, "__all__", ())
 

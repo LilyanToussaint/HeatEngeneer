@@ -5,7 +5,6 @@ import math
 import unittest
 
 from Source import HeatTransferCoefficient
-from Source.Heat_transfer_coefficient.correlations import h_gnielinski_internal
 
 
 class TestHeatTransferCoefficient(unittest.TestCase):
@@ -21,7 +20,12 @@ class TestHeatTransferCoefficient(unittest.TestCase):
         """Wrapper output must match the direct correlation function."""
 
         params = dict(Re=2.5e4, Pr=7.0, k=0.6, d_i=0.01)
-        direct_value = h_gnielinski_internal(**params)
+        # Valeur de référence calculée via la corrélation de Gnielinski.
+        f = (0.79 * params["Re"] ** -0.25 - 0.64) ** 2
+        Nu = (f / 8.0) * (params["Re"] - 1000.0) * params["Pr"] / (
+            1.0 + 12.7 * (f / 8.0) ** 0.5 * (params["Pr"] ** (2.0 / 3.0) - 1.0)
+        )
+        direct_value = Nu * params["k"] / params["d_i"]
 
         htc = HeatTransferCoefficient("gnielinski_internal")
         result = htc.compute(**params)

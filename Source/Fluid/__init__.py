@@ -1,5 +1,4 @@
 """Fluid property helpers leveraging CoolProp."""
+from .Fluid import Fluid
 
-from .fluid import FluidProperties, FluidPropertyError, FluidState
-
-__all__ = ["FluidProperties", "FluidPropertyError", "FluidState"]
+__all__ = ["Fluid"]
