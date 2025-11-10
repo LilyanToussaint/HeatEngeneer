@@ -22,7 +22,7 @@ from .loss_pressure import PressureLossCorrelation, PressureLossResult
 from .materials import Material, MATERIAL_DATABASE
 
 __all__ = [
-    "CoolPropFluid",
+    "Fluid",
     "FluidProperties",
     "FluidPropertyError",
     "FluidState",
