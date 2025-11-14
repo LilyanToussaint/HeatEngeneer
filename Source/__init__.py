@@ -6,13 +6,7 @@ from .util import (
     reynolds_number,
     velocity_from_mass_flow,
 )
-from .Fluid import (
-    CoolPropFluid,
-    FluidProperties,
-    FluidPropertyError,
-    FluidState,
-    _COOLPROP_AVAILABLE,
-)
+from .Fluid import Fluid, _COOLPROP_AVAILABLE
 
 from .Heat_transfer_coefficient import (
     HeatTransferCoefficient,
@@ -20,18 +14,27 @@ from .Heat_transfer_coefficient import (
 )
 from .loss_pressure import PressureLossCorrelation, PressureLossResult
 from .materials import Material, MATERIAL_DATABASE
+from .geometries import (
+    PipeGeometry,
+    PipeNetworkGeometry,
+    PlateFinGeometry,
+    TubeFinGeometry,
+    TubeFinNetworkGeometry,
+)
 
 __all__ = [
     "Fluid",
-    "FluidProperties",
-    "FluidPropertyError",
-    "FluidState",
     "HeatTransferCoefficient",
     "HTCResult",
     "PressureLossCorrelation",
     "PressureLossResult",
     "Material",
     "MATERIAL_DATABASE",
+    "PipeGeometry",
+    "PipeNetworkGeometry",
+    "PlateFinGeometry",
+    "TubeFinGeometry",
+    "TubeFinNetworkGeometry",
     "reynolds_number",
     "prandtl_number",
     "velocity_from_mass_flow",

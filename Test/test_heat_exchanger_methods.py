@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from Source import (
-    CoolPropFluid,
+    Fluid,
     HeatTransferCoefficient,
     MATERIAL_DATABASE,
     PressureLossCorrelation,
@@ -79,13 +79,14 @@ class TestGenericBuildingBlocks(unittest.TestCase):
         self.assertIn("water", MATERIAL_DATABASE)
 
     def test_coolprop_backend_availability(self) -> None:
+        fluid = Fluid(name="Water", backend="HEOS")
         if not _COOLPROP_AVAILABLE:
             with self.assertRaises(ModuleNotFoundError):
-                CoolPropFluid("Water")
+                fluid.compute("T", 300.0, "P", 101325.0)
         else:  # pragma: no cover - requires CoolProp
-            fluid = CoolPropFluid("Water")
-            state = fluid.properties_at(T=300.0, P=101325.0, outputs=("density",))
-            self.assertGreater(state["density"], 0.0)
+            fluid.compute("T", 300.0, "P", 101325.0)
+            self.assertIsNotNone(fluid.density_kg_m3)
+            self.assertGreater(fluid.density_kg_m3 or 0.0, 0.0)
 
 
 if __name__ == "__main__":  # pragma: no cover

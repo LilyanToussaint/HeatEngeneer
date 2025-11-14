@@ -1,7 +1,14 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, Dict
-from CoolProp.CoolProp import PropsSI
+from typing import Dict, Optional
+
+try:  # pragma: no cover - import guard behaviour is validated indirectly
+    from CoolProp.CoolProp import PropsSI  # type: ignore[assignment]
+except ModuleNotFoundError:  # pragma: no cover - executed when CoolProp is absent
+    PropsSI = None  # type: ignore[assignment]
+
+
+_COOLPROP_AVAILABLE = PropsSI is not None
 
 
 @dataclass
@@ -47,7 +54,7 @@ class Fluid:
             return f"{self.backend}::{self.name}"
         return self.name
 
-    def compute(self, key1: str, val1: float, key2: str, val2: float) -> "Fluide":
+    def compute(self, key1: str, val1: float, key2: str, val2: float) -> "Fluid":
         """
         Met à jour l'état à partir de 2 grandeurs indépendantes CoolProp.
 
@@ -64,6 +71,12 @@ class Fluid:
             raise ValueError(f"Clés invalides: '{key1}', '{key2}'. Autorisées: {allowed}")
         if key1 == key2:
             raise ValueError("Les 2 clés doivent être différentes.")
+
+        if PropsSI is None:
+            raise ModuleNotFoundError(
+                "CoolProp is required to compute fluid properties. "
+                "Install the 'coolprop' package to enable this feature."
+            )
 
         props = {
             "T":  "T",

@@ -1,4 +1,4 @@
 """Fluid property helpers leveraging CoolProp."""
-from .Fluid import Fluid
+from .Fluid import Fluid, _COOLPROP_AVAILABLE
 
-__all__ = ["Fluid"]
+__all__ = ["Fluid", "_COOLPROP_AVAILABLE"]
