@@ -18,6 +18,7 @@ from .geometries import (
     PipeGeometry,
     PipeNetworkGeometry,
     PlateFinGeometry,
+    PlateHeatExchangerGeometry,
     TubeFinGeometry,
     TubeFinNetworkGeometry,
 )
@@ -33,6 +34,7 @@ __all__ = [
     "PipeGeometry",
     "PipeNetworkGeometry",
     "PlateFinGeometry",
+    "PlateHeatExchangerGeometry",
     "TubeFinGeometry",
     "TubeFinNetworkGeometry",
     "reynolds_number",

@@ -8,6 +8,7 @@ from Source.geometries import (
     PipeGeometry,
     PipeNetworkGeometry,
     PlateFinGeometry,
+    PlateHeatExchangerGeometry,
     TubeFinGeometry,
     TubeFinNetworkGeometry,
 )
@@ -111,6 +112,43 @@ class TestPlateFinGeometry(unittest.TestCase):
                 fin_count=-1,
                 channel_width=0.002,
                 plate_thickness=0.001,
+            )
+
+
+class TestPlateHeatExchangerGeometry(unittest.TestCase):
+    def setUp(self) -> None:
+        self.geometry = PlateHeatExchangerGeometry(
+            name="inox",
+            density=8000.0,
+            length=0.5,
+            width=0.2,
+            plate_thickness=0.001,
+            channel_gap=0.002,
+            plate_count=20,
+        )
+
+    def test_volumes_and_stack(self) -> None:
+        channel_count = 19
+        expected_fluid = channel_count * 0.5 * 0.2 * 0.002
+        expected_material = 20 * 0.5 * 0.2 * 0.001
+        expected_stack = 20 * 0.001 + channel_count * 0.002
+
+        self.assertEqual(self.geometry.channel_count, channel_count)
+        self.assertAlmostEqual(self.geometry.fluid_volume, expected_fluid)
+        self.assertAlmostEqual(self.geometry.material_volume, expected_material)
+        self.assertAlmostEqual(self.geometry.total_volume, expected_fluid + expected_material)
+        self.assertAlmostEqual(self.geometry.stack_thickness, expected_stack)
+
+    def test_invalid_plate_count(self) -> None:
+        with self.assertRaises(ValueError):
+            PlateHeatExchangerGeometry(
+                name="inox",
+                density=8000.0,
+                length=0.5,
+                width=0.2,
+                plate_thickness=0.001,
+                channel_gap=0.002,
+                plate_count=1,
             )
 
 
