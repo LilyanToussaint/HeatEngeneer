@@ -11,9 +11,9 @@ if str(ROOT) not in sys.path:
 from Source import (  # noqa: E402  (import after sys.path tweaks)
     HeatTransferCoefficient,
     MATERIAL_DATABASE,
+    Fluid,
     PressureLossCorrelation,
     _COOLPROP_AVAILABLE,
-    CoolPropFluid,
     mass_flow_from_velocity,
     prandtl_number,
     reynolds_number,
@@ -69,12 +69,12 @@ def demo_materials_and_fluids() -> None:
         print("CoolProp indisponible: impossible de démontrer les fluides dynamiques.\n")
         return
 
-    water = CoolPropFluid("Water")
-    state = water.properties_at(T=298.15, P=101325.0, outputs=("cp", "density"))
+    water = Fluid(name="Water", backend="HEOS")
+    water.compute("T", 298.15, "P", 101325.0)
     print(
         "Eau: cp = {cp:.1f} J/kg/K, rho = {rho:.1f} kg/m³\n".format(
-            cp=state["cp"],
-            rho=state["density"],
+            cp=water.cp_J_kgK,
+            rho=water.density_kg_m3,
         )
     )
 

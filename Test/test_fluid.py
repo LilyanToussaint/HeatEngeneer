@@ -1,113 +1,76 @@
-# test_fluid.py
-# Tests unitaires pour la classe Fluid sans utiliser "assert"
-# Exécution : python -m unittest test_fluid.py
+"""Tests for the CoolProp-backed :class:`Fluid` helper."""
+from __future__ import annotations
 
-import math
 import unittest
+from unittest.mock import patch
 
-from fluid import Fluid
+from Source.Fluid import Fluid
 
 
 class TestFluid(unittest.TestCase):
+    """Validate the high level behaviour of :class:`Fluid`."""
 
-    def test_init_valid_fluid(self):
-        f = Fluid(name="Water", rho=1000.0, mu=1e-3, k=0.6, cp=4180.0)
-        self.assertEqual(f.name, "Water")
-        self.assertAlmostEqual(f.rho, 1000.0)
-        self.assertAlmostEqual(f.mu, 1e-3)
-        self.assertAlmostEqual(f.k, 0.6)
-        self.assertAlmostEqual(f.cp, 4180.0)
+    def test_identifier_without_backend(self) -> None:
+        fluid = Fluid(name="Water")
+        self.assertEqual(fluid.identifier, "Water")
 
-    def test_init_invalid_physical_values(self):
-        base = dict(name="X", rho=1000.0, mu=1e-3, k=0.6, cp=4180.0)
+    def test_identifier_with_backend(self) -> None:
+        fluid = Fluid(name="Water", backend="HEOS")
+        self.assertEqual(fluid.identifier, "HEOS::Water")
 
-        cases = [
-            ("rho", -1.0),
-            ("rho", 0.0),
-            ("mu", -1e-3),
-            ("mu", 0.0),
-            ("k", -0.1),
-            ("k", 0.0),
-            ("cp", -10.0),
-            ("cp", 0.0),
-        ]
+    def test_compute_populates_state_and_returns_self(self) -> None:
+        fluid = Fluid(name="Water", backend="HEOS")
 
-        for field, value in cases:
-            kwargs = base.copy()
-            kwargs[field] = value
-            with self.subTest(field=field, value=value):
-                with self.assertRaises((ValueError, TypeError)):
-                    Fluid(**kwargs)
-
-    def test_prandtl_number_computation(self):
-        rho = 997.0
-        mu = 8.9e-4
-        k = 0.6
-        cp = 4180.0
-
-        f = Fluid(name="Water", rho=rho, mu=mu, k=k, cp=cp)
-        expected_Pr = cp * mu / k
-
-        self.assertAlmostEqual(f.Pr, expected_Pr, delta=abs(expected_Pr) * 1e-6)
-
-    def test_prandtl_is_read_only(self):
-        """On ne doit pas pouvoir définir Pr directement si c'est une @property."""
-        f = Fluid(name="Water", rho=1000.0, mu=1e-3, k=0.6, cp=4180.0)
-
-        with self.assertRaises(AttributeError):
-            # type: ignore[attr-defined]
-            f.Pr = 1.0
-
-    def test_repr_contains_useful_info(self):
-        f = Fluid(name="Water", rho=1000.0, mu=1e-3, k=0.6, cp=4180.0)
-        r = repr(f).lower()
-
-        self.assertIn("water", r)
-        # On ne fige pas le format exact, on vérifie juste des mots clés utiles
-        self.assertTrue(("rho" in r) or ("density" in r))
-        self.assertTrue(("mu" in r) or ("viscos" in r))
-
-    def test_from_dict_valid(self):
-        if not hasattr(Fluid, "from_dict"):
-            self.skipTest("from_dict non implémenté dans Fluid")
-
-        data = {
-            "name": "Water",
-            "rho": 1000.0,
-            "mu": 1e-3,
-            "k": 0.6,
-            "cp": 4180.0,
+        expected = {
+            "T": 300.0,
+            "P": 101_325.0,
+            "D": 997.0,
+            "H": 1.2e5,
+            "S": 1.0e3,
+            "C": 4180.0,
+            "O": 3120.0,
+            "L": 0.6,
+            "V": 1.0e-3,
+            "Prandtl": 6.98,
+            "Q": 0.0,
         }
 
-        f = Fluid.from_dict(data)
-        self.assertIsInstance(f, Fluid)
-        self.assertEqual(f.name, "Water")
-        self.assertAlmostEqual(f.rho, 1000.0)
-        self.assertAlmostEqual(f.mu, 1e-3)
-        self.assertAlmostEqual(f.k, 0.6)
-        self.assertAlmostEqual(f.cp, 4180.0)
+        calls: list[tuple[str, str, float, str, float, str]] = []
 
-    def test_with_updated_state_returns_new_instance(self):
-        if not hasattr(Fluid, "with_updated_state"):
-            self.skipTest("with_updated_state non implémenté dans Fluid")
+        def fake_props_si(code: str, key1: str, val1: float, key2: str, val2: float, identifier: str) -> float:
+            calls.append((code, key1, val1, key2, val2, identifier))
+            return expected[code]
 
-        f1 = Fluid(name="Water", rho=1000.0, mu=1e-3, k=0.6, cp=4180.0)
-        f2 = f1.with_updated_state(mu=2e-3)
+        with patch("Source.Fluid.Fluid.PropsSI", side_effect=fake_props_si):
+            result = fluid.compute("T", 300.0, "P", 101_325.0)
 
-        self.assertIsInstance(f2, Fluid)
-        self.assertIsNot(f1, f2)
-        self.assertAlmostEqual(f2.mu, 2e-3)
-        self.assertAlmostEqual(f2.rho, f1.rho)
-        self.assertAlmostEqual(f2.k, f1.k)
-        self.assertAlmostEqual(f2.cp, f1.cp)
+        self.assertIs(result, fluid)
+        self.assertEqual(len(calls), len(expected))
+        self.assertEqual(fluid.temperature_K, expected["T"])
+        self.assertEqual(fluid.pressure_Pa, expected["P"])
+        self.assertEqual(fluid.density_kg_m3, expected["D"])
+        self.assertEqual(fluid.enthalpy_J_kg, expected["H"])
+        self.assertEqual(fluid.entropy_J_kgK, expected["S"])
+        self.assertEqual(fluid.cp_J_kgK, expected["C"])
+        self.assertEqual(fluid.cv_J_kgK, expected["O"])
+        self.assertEqual(fluid.conductivity_W_mK, expected["L"])
+        self.assertEqual(fluid.dynamic_viscosity_Pa_s, expected["V"])
+        self.assertEqual(fluid.prandtl_number, expected["Prandtl"])
+        self.assertEqual(fluid.vapor_quality, expected["Q"])
 
-        expected_Pr = f2.cp * f2.mu / f2.k
-        self.assertAlmostEqual(f2.Pr, expected_Pr, delta=abs(expected_Pr) * 1e-6)
+        # Each PropsSI call should use the fully qualified identifier.
+        for call in calls:
+            self.assertEqual(call[-1], "HEOS::Water")
 
-    def test_numerical_stability_prandtl(self):
-        f = Fluid(name="Oil", rho=850.0, mu=0.02, k=0.13, cp=2000.0)
-        self.assertGreater(f.Pr, 0.0)
-        self.assertTrue(math.isfinite(f.Pr))
+    def test_compute_rejects_invalid_keys(self) -> None:
+        fluid = Fluid(name="Water")
+        with self.assertRaises(ValueError):
+            fluid.compute("X", 1.0, "P", 1.0)
+
+    def test_compute_requires_distinct_keys(self) -> None:
+        fluid = Fluid(name="Water")
+        with self.assertRaises(ValueError):
+            fluid.compute("T", 300.0, "T", 350.0)
 
 
 if __name__ == "__main__":
